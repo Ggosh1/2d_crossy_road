@@ -4,6 +4,8 @@ import pygame
 import math
 import os
 import sys
+from pygame.locals import * #это добавляет обработку клавиш
+
 
 pygame.init()
 running = True
@@ -102,6 +104,9 @@ class Hero(AnimatedSprite):
     def __init__(self, pos, *group):
         super().__init__(Hero.hero_image, 4, 4, pos[0], pos[1], *group)
 
+    def move(self, x, y):
+        self.rect = self.rect.move(x, y)
+
     def update(self):
         super().update()
 
@@ -115,9 +120,20 @@ while running:
             running = False
         if event.type == pygame.MOUSEBUTTONDOWN:
             print(board.get_cell(event.pos))
+        if event.type == pygame.KEYDOWN:
+            if event.key == pygame.K_w or event.key == pygame.K_UP:
+                hero.move(0, -board.cell_size)
+            if event.key == pygame.K_a or event.key == pygame.K_LEFT:
+                hero.move(-board.cell_size, 0)
+            if event.key == pygame.K_s or event.key == pygame.K_DOWN:
+                hero.move(0, board.cell_size)
+            if event.key == pygame.K_d or event.key == pygame.K_RIGHT:
+                hero.move(board.cell_size, 0)
+
+
     screen.fill((0, 0, 0))
     board.render(screen)
     all_sprites.draw(screen)
     all_sprites.update()
-    clock.tick(10)
+    clock.tick(50)
     pygame.display.flip()

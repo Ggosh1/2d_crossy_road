@@ -16,6 +16,7 @@ all_sprites = pygame.sprite.Group()
 rocks_sprites = pygame.sprite.Group()
 tree_sprites = pygame.sprite.Group()
 car_sprites = pygame.sprite.Group()
+train_sprites = pygame.sprite.Group()
 timer_event = pygame.USEREVENT + 1
 
 def load_image(name, colorkey=None):
@@ -66,11 +67,11 @@ class Board:
         self.left = 0
         self.top = 0
         self.cell_size = 100
-        self.chance_safe_line = 90
+        self.chance_safe_line = 30
         self.chance_tree_spawn = 10
         self.chance_rock_spawn = 5
+        self.chance_road_line = 60
         self.generate_area()
-        print(self.board)
 
     def set_view(self, left, top, cell_size):
         self.left = left
@@ -110,10 +111,11 @@ class Board:
     def generate_area(self):
         self.road_lines = []
         self.list_ticks = []
+        self.train_lines = []
         is_last_line_safe = False # не должно быть 2 линии безопасности подряд
         for i in range(0, self.height - 1):
             line = []
-            type_line = random.choices(['safe', 'unsafe'], weights=[self.chance_safe_line, 100 - self.chance_safe_line],
+            type_line = random.choices(['safe', 'road', 'train'], weights=[self.chance_safe_line, self.chance_road_line, 100 - self.chance_safe_line - self.chance_road_line],
                                        k=1)
             if type_line[0] == 'safe' and not is_last_line_safe: # 20% шанс, что линия станет безопасной
                 is_last_line_safe = True
@@ -124,21 +126,35 @@ class Board:
                     elif 100 - random.randint(0, 100) < self.chance_rock_spawn:
                         pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1]
                         line.append(Rock(rocks_sprites, pos))
-                        print('rock')
                     else:
                         line.append(0)
-            else:
+            elif type_line[0] == 'road':
                 is_last_line_safe = False
                 for j in range(self.width):
                     pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1]
                     line.append(Road(all_sprites, pos))
-                line_speed = random.randint(-15, -5) * random.choice([-1, 1])
-                timer_interval = 5000 // abs(line_speed) + random.randint(100, 200)
+                line_speed = random.randint(-15, -3) * random.choice([-1, 1])
+                timer_interval = 6000 // abs(line_speed) + random.randint(100, 200)
                 self.road_lines.append((i, line_speed, timer_interval))
+            elif type_line[0] == 'train':
+                for j in range(self.width):
+                    pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1]
+                    line.append(Rails(all_sprites, pos))
+                line_speed = random.randint(-30, -14) * random.choice([-1, 1])
+                timer_interval = 25000 // abs(line_speed)
+                self.train_lines.append((i, line_speed, timer_interval))
             self.board[i] = line
 
 
 
+class Rails(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image('rails.jpg', -1), (110, 120))
+    def __init__(self, group, pos):
+        super().__init__(group)
+        self.image = Rails.image
+        self.rect = self.image.get_rect()
+        self.rect.x = pos[0]
+        self.rect.y = pos[1] - 10
 
 
 class Road(pygame.sprite.Sprite):
@@ -192,15 +208,38 @@ class Rock(pygame.sprite.Sprite):
 
 
 class Car(pygame.sprite.Sprite):
-    image_list = [pygame.transform.scale(load_image('car.png', -1), (200, 150)), pygame.transform.scale(load_image('car2.png', -1), (200, 150)),
-                           pygame.transform.scale(load_image('car3.png', -1), (200, 150)), pygame.transform.scale(load_image('car4.png', -1), (200, 120)),
-                           pygame.transform.scale(load_image('car5.png', -1), (200, 120)), pygame.transform.scale(load_image('car6.png', -1), (200, 120))]
+    image_list = [(pygame.transform.scale(load_image('car.png', -1), (200, 150)), 0), (pygame.transform.scale(load_image('car2.png', -1), (200, 150)), 1),
+                  (pygame.transform.scale(load_image('car3.png', -1), (200, 150)),2), (pygame.transform.scale(load_image('car4.png', -1), (200, 120)), 3),
+                                                                                       (pygame.transform.scale(load_image('car5.png', -1), (200, 120)), 4),
+                                                                                        (pygame.transform.scale(load_image('car6.png', -1), (200, 100)), 5)]
     def __init__(self, group, pos, speed):
         super().__init__(group)
+        car_number = random.choice(Car.image_list)[1]
         if speed >= 0:
-            self.image = pygame.transform.flip(random.choice(Car.image_list), True, False)
+            self.image = pygame.transform.flip(Car.image_list[car_number][0], True, False)
         else:
-            self.image = random.choice(Car.image_list)
+            self.image = Car.image_list[car_number][0]
+        self.rect = self.image.get_rect()
+        self.rect.x = pos[0]
+        if car_number == 5:
+            self.rect.y = pos[1] + 40
+        else:
+            self.rect.y = pos[1]
+        self.speed = speed
+
+    def update(self):
+        self.rect = self.rect.move(self.speed, 0)
+
+
+class Train(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image('train.jpg', -1), (200, 100))
+    def __init__(self, group, pos, speed):
+        print('spw')
+        super().__init__(group)
+        if speed >= 0:
+            self.image = pygame.transform.flip(Train.image, True, False)
+        else:
+            self.image = Train.image
         self.rect = self.image.get_rect()
         self.rect.x = pos[0]
         self.rect.y = pos[1]
@@ -237,6 +276,18 @@ while running:
                 Car(car_sprites, (-400, board.board[i][0].rect.y - 45), speed)
             else:
                 Car(car_sprites, (screen.get_width(), board.board[i][0].rect.y - 45), speed)
+    for i, speed, ticks in board.train_lines:
+        if 0 <= pygame.time.get_ticks() % ticks <= 2:
+            if speed >= 0:
+                cord1 = -400
+                delta = -200
+                for tr in range(random.randint(8, 16)):
+                    Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y - 15), speed)
+            else:
+                cord1 = screen.get_width()
+                delta = 200
+                for tr in range(random.randint(8, 16)):
+                    Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y - 15), speed)
 
 
 
@@ -247,6 +298,8 @@ while running:
     all_sprites.update()
     car_sprites.draw(screen)
     tree_sprites.draw(screen)
+    train_sprites.draw(screen)
     car_sprites.update()
+    train_sprites.update()
     clock.tick(50)
     pygame.display.flip()

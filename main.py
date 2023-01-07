@@ -15,6 +15,7 @@ screen = pygame.display.set_mode(size)
 all_sprites = pygame.sprite.Group()
 rocks_sprites = pygame.sprite.Group()
 tree_sprites = pygame.sprite.Group()
+car_sprites = pygame.sprite.Group()
 timer_event = pygame.USEREVENT + 1
 
 def load_image(name, colorkey=None):
@@ -155,12 +156,19 @@ class Hero(AnimatedSprite):
 
     def __init__(self, pos, *group):
         super().__init__(Hero.hero_image, 4, 4, pos[0], pos[1], *group)
+        self.left = True
 
     def move(self, x, y):
         self.rect = self.rect.move(x, y)
+        if x < 0:
+            self.left = True
+        elif x > 0:
+            self.left = False
 
     def update(self):
         super().update((100, 100))
+        if not self.left:
+            self.image = pygame.transform.flip(self.image, True, False)
 
 
 class Tree(pygame.sprite.Sprite):
@@ -226,9 +234,9 @@ while running:
     for i, speed, ticks in board.road_lines:
         if 0 <= pygame.time.get_ticks() % ticks <= 5:
             if speed >= 0:
-                Car(all_sprites, (-400, board.board[i][0].rect.y - 45), speed)
+                Car(car_sprites, (-400, board.board[i][0].rect.y - 45), speed)
             else:
-                Car(all_sprites, (screen.get_width(), board.board[i][0].rect.y - 45), speed)
+                Car(car_sprites, (screen.get_width(), board.board[i][0].rect.y - 45), speed)
 
 
 
@@ -237,6 +245,8 @@ while running:
     rocks_sprites.draw(screen)
     all_sprites.draw(screen)
     all_sprites.update()
+    car_sprites.draw(screen)
     tree_sprites.draw(screen)
+    car_sprites.update()
     clock.tick(50)
     pygame.display.flip()

@@ -121,8 +121,9 @@ class Board:
                         pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - self.cell_size
                         line.append(Tree(tree_sprites, pos))
                     elif 100 - random.randint(0, 100) < self.chance_rock_spawn:
-                        pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - self.cell_size
+                        pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1]
                         line.append(Rock(rocks_sprites, pos))
+                        print('rock')
                     else:
                         line.append(0)
             else:

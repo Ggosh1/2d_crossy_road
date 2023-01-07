@@ -14,6 +14,8 @@ size = pygame.display.Info().current_w, pygame.display.Info().current_h
 screen = pygame.display.set_mode(size)
 all_sprites = pygame.sprite.Group()
 rocks_sprites = pygame.sprite.Group()
+tree_sprites = pygame.sprite.Group()
+timer_event = pygame.USEREVENT + 1
 
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
@@ -50,9 +52,9 @@ class AnimatedSprite(pygame.sprite.Sprite):
                 self.frames.append(sheet.subsurface(pygame.Rect(
                     frame_location, self.rect.size)))
 
-    def update(self):
+    def update(self, scale):
         self.cur_frame = (self.cur_frame + 1) % len(self.frames)
-        self.image = pygame.transform.scale(self.frames[self.cur_frame], (100, 100))
+        self.image = pygame.transform.scale(self.frames[self.cur_frame], scale)
 
 
 class Board:
@@ -105,27 +107,46 @@ class Board:
         self.on_click(cell)
 
     def generate_area(self):
+        self.road_lines = []
+        self.list_ticks = []
         is_last_line_safe = False # не должно быть 2 линии безопасности подряд
-        for i in range(1, self.height):
+        for i in range(0, self.height - 1):
+            line = []
             type_line = random.choices(['safe', 'unsafe'], weights=[self.chance_safe_line, 100 - self.chance_safe_line],
                                        k=1)
             if type_line[0] == 'safe' and not is_last_line_safe: # 20% шанс, что линия станет безопасной
                 is_last_line_safe = True
-                line = []
                 for j in range(self.width):
                     if 100 - random.randint(0, 100) < self.chance_tree_spawn: # 10% шанс для каждой клетки, что заспавнится дерево
                         pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - self.cell_size
-                        line.append(Tree(all_sprites, pos))
+                        line.append(Tree(tree_sprites, pos))
                     elif 100 - random.randint(0, 100) < self.chance_rock_spawn:
                         pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - self.cell_size
                         line.append(Rock(rocks_sprites, pos))
                     else:
                         line.append(0)
-                self.board[i] = line
             else:
                 is_last_line_safe = False
+                for j in range(self.width):
+                    pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1]
+                    line.append(Road(all_sprites, pos))
+                line_speed = random.randint(-15, -5) * random.choice([-1, 1])
+                timer_interval = 5000 // abs(line_speed) + random.randint(100, 200)
+                self.road_lines.append((i, line_speed, timer_interval))
+            self.board[i] = line
 
 
+
+
+
+class Road(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image('road2.jpg'), (100, 100))
+    def __init__(self, group, pos):
+        super().__init__(group)
+        self.image = Road.image
+        self.rect = self.image.get_rect()
+        self.rect.x = pos[0]
+        self.rect.y = pos[1] - 10
 
 
 class Hero(AnimatedSprite):
@@ -138,7 +159,7 @@ class Hero(AnimatedSprite):
         self.rect = self.rect.move(x, y)
 
     def update(self):
-        super().update()
+        super().update((100, 100))
 
 
 class Tree(pygame.sprite.Sprite):
@@ -161,10 +182,30 @@ class Rock(pygame.sprite.Sprite):
         self.rect.y = pos[1] + random.randint(-9, 14)
 
 
+class Car(pygame.sprite.Sprite):
+    image_list = [pygame.transform.scale(load_image('car.png', -1), (200, 150)), pygame.transform.scale(load_image('car2.png', -1), (200, 150)),
+                           pygame.transform.scale(load_image('car3.png', -1), (200, 150)), pygame.transform.scale(load_image('car4.png', -1), (200, 120)),
+                           pygame.transform.scale(load_image('car5.png', -1), (200, 120)), pygame.transform.scale(load_image('car6.png', -1), (200, 120))]
+    def __init__(self, group, pos, speed):
+        super().__init__(group)
+        if speed >= 0:
+            self.image = pygame.transform.flip(random.choice(Car.image_list), True, False)
+        else:
+            self.image = random.choice(Car.image_list)
+        self.rect = self.image.get_rect()
+        self.rect.x = pos[0]
+        self.rect.y = pos[1]
+        self.speed = speed
+
+    def update(self):
+        self.rect = self.rect.move(self.speed, 0)
+
+
+
 
 board = Board(size[0] // 100, size[1] // 100)
 hero_pos = board.get_coords_by_cell((board.width // 2, board.height))
-hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size), all_sprites)
+hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size - 10), all_sprites)
 clock = pygame.time.Clock()
 while running:
     for event in pygame.event.get():
@@ -181,6 +222,13 @@ while running:
                 hero.move(0, board.cell_size)
             if event.key == pygame.K_d or event.key == pygame.K_RIGHT:
                 hero.move(board.cell_size, 0)
+    for i, speed, ticks in board.road_lines:
+        if 0 <= pygame.time.get_ticks() % ticks <= 5:
+            if speed >= 0:
+                Car(all_sprites, (-400, board.board[i][0].rect.y - 45), speed)
+            else:
+                Car(all_sprites, (screen.get_width(), board.board[i][0].rect.y - 45), speed)
+
 
 
     screen.fill((0, 255, 0))
@@ -188,5 +236,6 @@ while running:
     rocks_sprites.draw(screen)
     all_sprites.draw(screen)
     all_sprites.update()
+    tree_sprites.draw(screen)
     clock.tick(50)
     pygame.display.flip()

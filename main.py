@@ -4,6 +4,7 @@ import pygame
 import math
 import os
 import sys
+import random
 from pygame.locals import * #это добавляет обработку клавиш
 
 
@@ -12,6 +13,7 @@ running = True
 size = pygame.display.Info().current_w, pygame.display.Info().current_h
 screen = pygame.display.set_mode(size)
 all_sprites = pygame.sprite.Group()
+rocks_sprites = pygame.sprite.Group()
 
 def load_image(name, colorkey=None):
     fullname = os.path.join('data', name)
@@ -61,6 +63,11 @@ class Board:
         self.left = 0
         self.top = 0
         self.cell_size = 100
+        self.chance_safe_line = 90
+        self.chance_tree_spawn = 10
+        self.chance_rock_spawn = 5
+        self.generate_area()
+        print(self.board)
 
     def set_view(self, left, top, cell_size):
         self.left = left
@@ -87,7 +94,7 @@ class Board:
 
     def get_coords_by_cell(self, cell):
         if self.width >= cell[0] and self.height >= cell[1]:
-            return self.left + self.cell_size * (cell[0]), self.height + self.cell_size * (cell[1] - 1)
+            return self.left + self.cell_size * (cell[0]), self.height + self.cell_size * (cell[1])
 
 
     def on_click(self, cell_coords):
@@ -96,6 +103,29 @@ class Board:
     def get_click(self, mouse_pos):
         cell = self.get_cell(mouse_pos)
         self.on_click(cell)
+
+    def generate_area(self):
+        is_last_line_safe = False # не должно быть 2 линии безопасности подряд
+        for i in range(1, self.height):
+            type_line = random.choices(['safe', 'unsafe'], weights=[self.chance_safe_line, 100 - self.chance_safe_line],
+                                       k=1)
+            if type_line[0] == 'safe' and not is_last_line_safe: # 20% шанс, что линия станет безопасной
+                is_last_line_safe = True
+                line = []
+                for j in range(self.width):
+                    if 100 - random.randint(0, 100) < self.chance_tree_spawn: # 10% шанс для каждой клетки, что заспавнится дерево
+                        pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - self.cell_size
+                        line.append(Tree(all_sprites, pos))
+                    elif 100 - random.randint(0, 100) < self.chance_rock_spawn:
+                        pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - self.cell_size
+                        line.append(Rock(rocks_sprites, pos))
+                    else:
+                        line.append(0)
+                self.board[i] = line
+            else:
+                is_last_line_safe = False
+
+
 
 
 class Hero(AnimatedSprite):
@@ -111,8 +141,30 @@ class Hero(AnimatedSprite):
         super().update()
 
 
+class Tree(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image('tree4.png'), (95, 190))
+    def __init__(self, group, pos):
+        super().__init__(group)
+        self.image = Tree.image
+        self.rect = self.image.get_rect()
+        self.rect.x = pos[0]
+        self.rect.y = pos[1] - 2
+
+
+class Rock(pygame.sprite.Sprite):
+    image = pygame.transform.scale(load_image('rock2.png'), (85, 70))
+    def __init__(self, group, pos):
+        super().__init__(group)
+        self.image = Rock.image
+        self.rect = self.image.get_rect()
+        self.rect.x = pos[0] + random.randint(1, 23)
+        self.rect.y = pos[1] + random.randint(-9, 14)
+
+
+
 board = Board(size[0] // 100, size[1] // 100)
-hero = Hero(board.get_coords_by_cell((board.width // 2, board.height)), all_sprites)
+hero_pos = board.get_coords_by_cell((board.width // 2, board.height))
+hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size), all_sprites)
 clock = pygame.time.Clock()
 while running:
     for event in pygame.event.get():
@@ -131,8 +183,9 @@ while running:
                 hero.move(board.cell_size, 0)
 
 
-    screen.fill((0, 0, 0))
+    screen.fill((0, 255, 0))
     board.render(screen)
+    rocks_sprites.draw(screen)
     all_sprites.draw(screen)
     all_sprites.update()
     clock.tick(50)

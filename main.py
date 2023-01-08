@@ -212,7 +212,7 @@ class Rails(pygame.sprite.Sprite):
         self.image = Rails.image
         self.rect = self.image.get_rect()
         self.rect.x = pos[0]
-        self.rect.y = pos[1] - 10
+        self.rect.y = pos[1] - 22
 
 
 class Road(pygame.sprite.Sprite):
@@ -242,6 +242,7 @@ class Hero(AnimatedSprite):
 
     def __init__(self, pos, *group):
         super().__init__(Hero.hero_image, 4, 4, pos[0], pos[1], *group)
+        self.life = True
         self.left = True
 
     def move(self, x, y):
@@ -259,9 +260,14 @@ class Hero(AnimatedSprite):
             self.left = False
 
     def update(self):
-        super().update((100, 100))
+        super().update((80, 80))
         if not self.left:
             self.image = pygame.transform.flip(self.image, True, False)
+        if pygame.sprite.spritecollide(self, car_sprites, False) or pygame.sprite.spritecollide(self, train_sprites, False):
+            self.life = False
+        log = pygame.sprite.spritecollideany(self, log_sprites)
+        if log:
+            self.move(log.speed, 0)
 
 
 class Tree(pygame.sprite.Sprite):
@@ -288,12 +294,13 @@ class Rock(pygame.sprite.Sprite):
 
 
 class Car(pygame.sprite.Sprite):
-    image_list = [(pygame.transform.scale(load_image('car.png', -1), (200, 150)), 0),
-                  (pygame.transform.scale(load_image('car2.png', -1), (200, 150)), 1),
-                  (pygame.transform.scale(load_image('car3.png', -1), (200, 150)), 2),
-                  (pygame.transform.scale(load_image('car4.png', -1), (200, 120)), 3),
-                  (pygame.transform.scale(load_image('car5.png', -1), (200, 120)), 4),
-                  (pygame.transform.scale(load_image('car6.png', -1), (200, 100)), 5)]
+    image_list = [(pygame.transform.scale(load_image('car.png', -1), (150, 100)), 0),
+                  (pygame.transform.scale(load_image('car2.png', -1), (150, 100)), 1),
+                  (pygame.transform.scale(load_image('car3.png', -1), (150, 100)), 2),
+                  (pygame.transform.scale(load_image('car4.png', -1), (150, 80)), 3),
+                  (pygame.transform.scale(load_image('car5.png', -1), (150, 80)), 4),
+                  (pygame.transform.scale(load_image('car6.png', -1), (150, 80)), 5)
+    ]
 
     def __init__(self, group, pos, speed):
         super().__init__(group)
@@ -305,10 +312,7 @@ class Car(pygame.sprite.Sprite):
         self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect()
         self.rect.x = pos[0]
-        if car_number == 5:
-            self.rect.y = pos[1] + 40
-        else:
-            self.rect.y = pos[1]
+        self.rect.y = pos[1] + 10
         self.speed = speed
 
     def update(self):
@@ -319,12 +323,13 @@ class Car(pygame.sprite.Sprite):
 
 
 class Log(pygame.sprite.Sprite):
-    image = pygame.transform.scale(load_image('log.png', -1), (300, 150))
+    image = pygame.transform.scale(load_image('log.png', -1), (300, 130))
 
     def __init__(self, group, pos, speed):
         super().__init__(group)
         self.image = pygame.transform.flip(Log.image, True, False)
         self.rect = self.image.get_rect()
+        self.rect = pygame.Rect((self.rect.left + 180, self.rect.top, 200, 80))
         self.rect.x = pos[0]
         self.rect.y = pos[1] - 4
         self.speed = speed
@@ -334,7 +339,7 @@ class Log(pygame.sprite.Sprite):
 
 
 class Train(pygame.sprite.Sprite):
-    image = pygame.transform.scale(load_image('train.jpg', -1), (200, 100))
+    image = pygame.transform.scale(load_image('train.jpg', -1), (200, 90))
 
     def __init__(self, group, pos, speed):
         super().__init__(group)
@@ -358,13 +363,12 @@ class Camera:
             el.rect = el.rect.move(0, delt)
 
 
-board = Board(size[0] // 100, size[1] // 100)
+board = Board(size[0] // 100 + 1, size[1] // 100)
 hero_pos = board.get_coords_by_cell((board.width // 2, board.height))
-hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size - 10), hero_sprites)
+hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size), hero_sprites)
 all_sprites.add(hero)
 clock = pygame.time.Clock()
 camera = Camera()
-print(board.water_lines)
 while running:
     if not alive:
         screen.blit(screen, (0, 0))
@@ -380,7 +384,7 @@ while running:
             running = False
         if event.type == pygame.MOUSEBUTTONDOWN:
             print(board.get_cell(event.pos))
-        if event.type == pygame.KEYDOWN:
+        if event.type == pygame.KEYDOWN and hero.life:
             if event.key == pygame.K_w or event.key == pygame.K_UP:
                 hero.move(0, -board.cell_size)
             if event.key == pygame.K_a or event.key == pygame.K_LEFT:
@@ -392,9 +396,9 @@ while running:
     for i, speed, ticks in board.road_lines:
         if 0 <= pygame.time.get_ticks() % ticks <= 5:
             if speed >= 0:
-                car = Car(car_sprites, (-400, board.board[i][0].rect.y - 45), speed)
+                car = Car(car_sprites, (-400, board.board[i][0].rect.y), speed)
             else:
-                car = Car(car_sprites, (screen.get_width(), board.board[i][0].rect.y - 45), speed)
+                car = Car(car_sprites, (screen.get_width(), board.board[i][0].rect.y), speed)
             all_sprites.add(car)
     for i, speed, ticks in board.train_lines:
         if 0 <= pygame.time.get_ticks() % ticks <= 2:
@@ -402,17 +406,16 @@ while running:
                 cord1 = -400
                 delta = -200
                 for tr in range(random.randint(8, 16)):
-                    train = Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y - 15), speed)
+                    train = Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y), speed)
                     all_sprites.add(train)
             else:
                 cord1 = screen.get_width()
                 delta = 200
                 for tr in range(random.randint(8, 16)):
-                    train = Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y - 15), speed)
+                    train = Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y), speed)
                     all_sprites.add(train)
     for i, speed, ticks in board.water_lines:
         if 0 <= pygame.time.get_ticks() % ticks <= 5:
-            print(board.board[i][0].rect.y, '###')
             if speed >= 0:
                 log = Log(log_sprites, (-400, board.board[i][0].rect.y), speed)
             else:
@@ -427,13 +430,14 @@ while running:
     rocks_sprites.draw(screen)
     enviroment_sprites.draw(screen)
     log_sprites.draw(screen)
-    log_sprites.update()
     hero_sprites.draw(screen)
-    hero_sprites.update()
     car_sprites.draw(screen)
     tree_sprites.draw(screen)
     train_sprites.draw(screen)
-    car_sprites.update()
-    train_sprites.update()
+    if hero.life:
+        log_sprites.update()
+        hero_sprites.update()
+        car_sprites.update()
+        train_sprites.update()
     clock.tick(50)
     pygame.display.flip()

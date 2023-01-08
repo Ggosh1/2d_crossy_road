@@ -10,8 +10,11 @@ from pygame.locals import *  # это добавляет обработку кл
 
 pygame.init()
 running, alive = True, True
-size = pygame.display.Info().current_w, pygame.display.Info().current_h
-screen = pygame.display.set_mode(size, FULLSCREEN)
+w, h = pygame.display.Info().current_w, pygame.display.Info().current_h
+w -= w % 100
+h -= h % 100
+size = w, h
+screen = pygame.display.set_mode(size)
 enviroment_sprites = pygame.sprite.Group()
 hero_sprites = pygame.sprite.Group()
 rocks_sprites = pygame.sprite.Group()

@@ -247,18 +247,18 @@ class Hero(AnimatedSprite):
         super().__init__(Hero.hero_image, 4, 4, pos[0], pos[1], *group)
         self.left = True
 
-    def move(self, x, y):
+    def move(self, x, y, do_flip):
         if self.rect.top + y <= board.height * board.cell_size:
             self.rect = self.rect.move(x, y)
         if self.rect.left < 0:
-            self.rect = self.rect.move(board.width * board.cell_size, 0)
-        elif self.rect.left >= board.width * board.cell_size:
-            self.rect = self.rect.move(-board.width * board.cell_size, 0)
-
-        if x < 0:
-            self.left = True
-        elif x > 0:
-            self.left = False
+            self.rect = self.rect.move((board.width - 1) * board.cell_size, 0)
+        elif self.rect.left >= (board.width - 1) * board.cell_size:
+            self.rect = self.rect.move((1 - board.width) * board.cell_size, 0)
+        if do_flip:
+            if x < 0:
+                self.left = True
+            elif x > 0:
+                self.left = False
 
     def update(self):
         super().update((80, 80))
@@ -266,8 +266,7 @@ class Hero(AnimatedSprite):
             self.image = pygame.transform.flip(self.image, True, False)
         log = pygame.sprite.spritecollideany(self, log_sprites)
         if log and log.rect.x - self.rect.x <= -33:
-            print(log.rect.x - self.rect.x)
-            self.move(log.speed, 0)
+            self.move(log.speed, 0, False)
 
 
 class Tree(pygame.sprite.Sprite):
@@ -389,13 +388,13 @@ while running:
             print(board.get_cell(event.pos))
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_w or event.key == pygame.K_UP:
-                hero.move(0, -board.cell_size)
+                hero.move(0, -board.cell_size, True)
             if event.key == pygame.K_a or event.key == pygame.K_LEFT:
-                hero.move(-board.cell_size, 0)
+                hero.move(-board.cell_size, 0, True)
             if event.key == pygame.K_s or event.key == pygame.K_DOWN:
-                hero.move(0, board.cell_size)
+                hero.move(0, board.cell_size, True)
             if event.key == pygame.K_d or event.key == pygame.K_RIGHT:
-                hero.move(board.cell_size, 0)
+                hero.move(board.cell_size, 0, True)
     for i, speed, ticks in board.road_lines:
         if 0 <= pygame.time.get_ticks() % ticks <= 5:
             if speed >= 0:
@@ -428,7 +427,7 @@ while running:
         board.regenerate(1)
         camera.go(group=all_sprites, delt=board.cell_size)
     cell = board.get_cell((hero.rect.x, hero.rect.y))
-    if board.board[cell[1]][0].__class__ == Water and pygame.sprite.spritecollideany(hero, log_sprites) == None:
+    if cell is not None and board.board[cell[1]][0].__class__ == Water and pygame.sprite.spritecollideany(hero, log_sprites) is None:
         board.game_end()
 
     screen.fill((0, 255, 0))

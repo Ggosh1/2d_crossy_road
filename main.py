@@ -245,7 +245,6 @@ class Hero(AnimatedSprite):
         self.left = True
 
     def move(self, x, y):
-        print(self.rect.top, board.height * board.cell_size)
         if self.rect.top + y <= board.height * board.cell_size:
             self.rect = self.rect.move(x, y)
         if self.rect.left < 0:
@@ -263,7 +262,8 @@ class Hero(AnimatedSprite):
         if not self.left:
             self.image = pygame.transform.flip(self.image, True, False)
         log = pygame.sprite.spritecollideany(self, log_sprites)
-        if log:
+        if log and log.rect.x - self.rect.x <= -33:
+            print(log.rect.x - self.rect.x)
             self.move(log.speed, 0)
 
 
@@ -326,7 +326,7 @@ class Log(pygame.sprite.Sprite):
         super().__init__(group)
         self.image = pygame.transform.flip(Log.image, True, False)
         self.rect = self.image.get_rect()
-        self.rect = pygame.Rect((self.rect.left + 180, self.rect.top, 200, 80))
+        self.rect.size = (175, 80)
         self.rect.x = pos[0]
         self.rect.y = pos[1] - 4
         self.speed = speed

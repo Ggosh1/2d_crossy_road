@@ -242,7 +242,6 @@ class Hero(AnimatedSprite):
 
     def __init__(self, pos, *group):
         super().__init__(Hero.hero_image, 4, 4, pos[0], pos[1], *group)
-        self.life = True
         self.left = True
 
     def move(self, x, y):
@@ -263,8 +262,6 @@ class Hero(AnimatedSprite):
         super().update((80, 80))
         if not self.left:
             self.image = pygame.transform.flip(self.image, True, False)
-        if pygame.sprite.spritecollide(self, car_sprites, False) or pygame.sprite.spritecollide(self, train_sprites, False):
-            self.life = False
         log = pygame.sprite.spritecollideany(self, log_sprites)
         if log:
             self.move(log.speed, 0)
@@ -384,7 +381,7 @@ while running:
             running = False
         if event.type == pygame.MOUSEBUTTONDOWN:
             print(board.get_cell(event.pos))
-        if event.type == pygame.KEYDOWN and hero.life:
+        if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_w or event.key == pygame.K_UP:
                 hero.move(0, -board.cell_size)
             if event.key == pygame.K_a or event.key == pygame.K_LEFT:
@@ -434,10 +431,9 @@ while running:
     car_sprites.draw(screen)
     tree_sprites.draw(screen)
     train_sprites.draw(screen)
-    if hero.life:
-        log_sprites.update()
-        hero_sprites.update()
-        car_sprites.update()
-        train_sprites.update()
+    log_sprites.update()
+    hero_sprites.update()
+    car_sprites.update()
+    train_sprites.update()
     clock.tick(50)
     pygame.display.flip()

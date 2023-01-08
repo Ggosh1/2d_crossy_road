@@ -353,7 +353,10 @@ class Train(pygame.sprite.Sprite):
         self.speed = speed
 
     def update(self):
-        self.rect = self.rect.move(self.speed, 0)
+        if not pygame.sprite.collide_mask(self, hero):
+            self.rect = self.rect.move(self.speed, 0)
+        else:
+            Board.game_end(self)
 
 
 class Camera:
@@ -424,6 +427,9 @@ while running:
     if hero.rect.y <= board.get_coords_by_cell((0, 4))[1]:
         board.regenerate(1)
         camera.go(group=all_sprites, delt=board.cell_size)
+    cell = board.get_cell((hero.rect.x, hero.rect.y))
+    if board.board[cell[1]][0].__class__ == Water and pygame.sprite.spritecollideany(hero, log_sprites) == None:
+        board.game_end()
 
     screen.fill((0, 255, 0))
     board.render(screen)

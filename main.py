@@ -7,10 +7,11 @@ import sys
 import random
 from pygame.locals import *  # это добавляет обработку клавиш
 
+
 pygame.init()
-running = True
+running, alive = True, True
 size = pygame.display.Info().current_w, pygame.display.Info().current_h
-screen = pygame.display.set_mode(size)
+screen = pygame.display.set_mode(size, FULLSCREEN)
 enviroment_sprites = pygame.sprite.Group()
 hero_sprites = pygame.sprite.Group()
 rocks_sprites = pygame.sprite.Group()
@@ -83,6 +84,10 @@ class Board:
         self.top = top
         self.cell_size = cell_size
 
+    def game_end(self):
+        global alive
+        alive = False
+
     def render(self, screen):
         for i in range(self.height):
             for j in range(self.width):
@@ -122,7 +127,8 @@ class Board:
             for j in range(self.width):
                 if 100 - random.randint(0,
                                         100) < self.chance_tree_spawn:  # 10% шанс для каждой клетки, что заспавнится дерево
-                    pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - self.cell_size - add_offset
+                    pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[
+                        1] - self.cell_size - add_offset
                     tree = Tree(tree_sprites, pos)
                     all_sprites.add(tree)
                     line.append(tree)
@@ -219,6 +225,7 @@ class Road(pygame.sprite.Sprite):
         self.rect.x = pos[0]
         self.rect.y = pos[1] - 10
 
+
 class Water(pygame.sprite.Sprite):
     image = pygame.transform.scale(load_image('water.png'), (100, 100))
 
@@ -238,7 +245,14 @@ class Hero(AnimatedSprite):
         self.left = True
 
     def move(self, x, y):
-        self.rect = self.rect.move(x, y)
+        print(self.rect.top, board.height * board.cell_size)
+        if self.rect.top + y <= board.height * board.cell_size:
+            self.rect = self.rect.move(x, y)
+        if self.rect.left < 0:
+            self.rect = self.rect.move(board.width * board.cell_size, 0)
+        elif self.rect.left >= board.width * board.cell_size:
+            self.rect = self.rect.move(-board.width * board.cell_size, 0)
+
         if x < 0:
             self.left = True
         elif x > 0:
@@ -256,6 +270,7 @@ class Tree(pygame.sprite.Sprite):
     def __init__(self, group, pos):
         super().__init__(group)
         self.image = Tree.image
+        self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect()
         self.rect.x = pos[0]
         self.rect.y = pos[1] - 2
@@ -287,6 +302,7 @@ class Car(pygame.sprite.Sprite):
             self.image = pygame.transform.flip(Car.image_list[car_number][0], True, False)
         else:
             self.image = Car.image_list[car_number][0]
+        self.mask = pygame.mask.from_surface(self.image)
         self.rect = self.image.get_rect()
         self.rect.x = pos[0]
         if car_number == 5:
@@ -296,7 +312,10 @@ class Car(pygame.sprite.Sprite):
         self.speed = speed
 
     def update(self):
-        self.rect = self.rect.move(self.speed, 0)
+        if not pygame.sprite.collide_mask(self, hero):
+            self.rect = self.rect.move(self.speed, 0)
+        else:
+            Board.game_end(self)
 
 
 class Log(pygame.sprite.Sprite):
@@ -347,6 +366,15 @@ clock = pygame.time.Clock()
 camera = Camera()
 print(board.water_lines)
 while running:
+    if not alive:
+        screen.blit(screen, (0, 0))
+        largeFont = pygame.font.SysFont('comicsans', 80)
+        lastScore = largeFont.render('Best Score: 0', 1,
+                                     (255, 255, 255))
+        currentScore = largeFont.render('Score: 0', 1, (255, 255, 255))
+        screen.blit(lastScore, ((board.width * board.cell_size) / 2 - lastScore.get_width() / 2, 150))
+        screen.blit(currentScore, ((board.width * board.cell_size) / 2 - currentScore.get_width() / 2, 240))
+        pygame.display.update()
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False

@@ -12,11 +12,13 @@ pygame.init()
 running = True
 size = pygame.display.Info().current_w, pygame.display.Info().current_h
 screen = pygame.display.set_mode(size)
-all_sprites = pygame.sprite.Group()
+enviroment_sprites = pygame.sprite.Group()
+hero_sprites = pygame.sprite.Group()
 rocks_sprites = pygame.sprite.Group()
 tree_sprites = pygame.sprite.Group()
 car_sprites = pygame.sprite.Group()
 train_sprites = pygame.sprite.Group()
+all_sprites = pygame.sprite.Group()
 timer_event = pygame.USEREVENT + 1
 
 def load_image(name, colorkey=None):
@@ -110,40 +112,103 @@ class Board:
 
     def generate_area(self):
         self.road_lines = []
-        self.list_ticks = []
         self.train_lines = []
-        is_last_line_safe = False # не должно быть 2 линии безопасности подряд
         for i in range(0, self.height - 1):
             line = []
             type_line = random.choices(['safe', 'road', 'train'], weights=[self.chance_safe_line, self.chance_road_line, 100 - self.chance_safe_line - self.chance_road_line],
                                        k=1)
-            if type_line[0] == 'safe' and not is_last_line_safe: # 20% шанс, что линия станет безопасной
-                is_last_line_safe = True
+            if type_line[0] == 'safe': # 20% шанс, что линия станет безопасной
                 for j in range(self.width):
                     if 100 - random.randint(0, 100) < self.chance_tree_spawn: # 10% шанс для каждой клетки, что заспавнится дерево
                         pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - self.cell_size
-                        line.append(Tree(tree_sprites, pos))
+                        tree = Tree(tree_sprites, pos)
+                        all_sprites.add(tree)
+                        line.append(tree)
                     elif 100 - random.randint(0, 100) < self.chance_rock_spawn:
                         pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1]
-                        line.append(Rock(rocks_sprites, pos))
+                        rock = Rock(rocks_sprites, pos)
+                        all_sprites.add(rock)
+                        line.append(rock)
                     else:
                         line.append(0)
             elif type_line[0] == 'road':
-                is_last_line_safe = False
                 for j in range(self.width):
                     pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1]
-                    line.append(Road(all_sprites, pos))
+                    road = Road(enviroment_sprites, pos)
+                    all_sprites.add(road)
+                    line.append(road)
                 line_speed = random.randint(-15, -3) * random.choice([-1, 1])
                 timer_interval = 6000 // abs(line_speed) + random.randint(100, 200)
-                self.road_lines.append((i, line_speed, timer_interval))
-            elif type_line[0] == 'train':
+                self.road_lines.append([i, line_speed, timer_interval])
+            else:
                 for j in range(self.width):
                     pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1]
-                    line.append(Rails(all_sprites, pos))
+                    rails = Rails(enviroment_sprites, pos)
+                    all_sprites.add(rails)
+                    line.append(rails)
                 line_speed = random.randint(-30, -14) * random.choice([-1, 1])
                 timer_interval = 25000 // abs(line_speed)
-                self.train_lines.append((i, line_speed, timer_interval))
+                self.train_lines.append([i, line_speed, timer_interval])
             self.board[i] = line
+
+    def regenerate(self, shift):
+        for i in range(self.height - 1, 0, -1):
+            self.board[i] = self.board[i - shift]
+        i = 0
+        while i < len(self.road_lines):
+            if self.road_lines[i][0] == self.height - 1:
+                self.road_lines.pop(i)
+            else:
+                self.road_lines[i][0] += 1
+                i += 1
+        i = 0
+        while i < len(self.train_lines):
+            if self.train_lines[i][0] == self.height - 1:
+                self.train_lines.pop(i)
+            else:
+                self.train_lines[i][0] += 1
+                i += 1
+
+        line = []
+        type_line = random.choices(['safe', 'road', 'train'], weights=[self.chance_safe_line, self.chance_road_line,
+                                                                       100 - self.chance_safe_line - self.chance_road_line],
+                                   k=1)
+        if type_line[0] == 'safe':  # 20% шанс, что линия станет безопасной
+            for j in range(self.width):
+                if 100 - random.randint(0,
+                                        100) < self.chance_tree_spawn:  # 10% шанс для каждой клетки, что заспавнится дерево
+                    pos = self.get_coords_by_cell((j, 0))[0], self.get_coords_by_cell((j, 0))[1] - 2 * self.cell_size
+                    tree = Tree(tree_sprites, pos)
+                    all_sprites.add(tree)
+                    line.append(tree)
+                elif 100 - random.randint(0, 100) < self.chance_rock_spawn:
+                    pos = self.get_coords_by_cell((j, 0))[0], self.get_coords_by_cell((j, 0))[1] - self.cell_size
+                    rock = Rock(rocks_sprites, pos)
+                    all_sprites.add(rock)
+                    line.append(rock)
+                else:
+                    line.append(0)
+        elif type_line[0] == 'road':
+            for j in range(self.width):
+                pos = self.get_coords_by_cell((j, 0))[0], self.get_coords_by_cell((j, 0))[1] - self.cell_size
+                road = Road(enviroment_sprites, pos)
+                all_sprites.add(road)
+                line.append(road)
+            line_speed = random.randint(-15, -3) * random.choice([-1, 1])
+            timer_interval = 6000 // abs(line_speed) + random.randint(100, 200)
+            self.road_lines.append([0, line_speed, timer_interval])
+        else:
+            for j in range(self.width):
+                pos = self.get_coords_by_cell((j, 0))[0], self.get_coords_by_cell((j, 0))[1] - self.cell_size
+                rails = Rails(enviroment_sprites, pos)
+                all_sprites.add(rails)
+                line.append(rails)
+            line_speed = random.randint(-30, -14) * random.choice([-1, 1])
+            timer_interval = 25000 // abs(line_speed)
+            self.train_lines.append([0, line_speed, timer_interval])
+        self.board[0] = line
+
+
 
 
 
@@ -234,7 +299,6 @@ class Car(pygame.sprite.Sprite):
 class Train(pygame.sprite.Sprite):
     image = pygame.transform.scale(load_image('train.jpg', -1), (200, 100))
     def __init__(self, group, pos, speed):
-        print('spw')
         super().__init__(group)
         if speed >= 0:
             self.image = pygame.transform.flip(Train.image, True, False)
@@ -250,11 +314,20 @@ class Train(pygame.sprite.Sprite):
 
 
 
+class Camera:
+
+    def go(self, group, delt):
+        for el in group:
+            el.rect = el.rect.move(0, delt)
+
+
 
 board = Board(size[0] // 100, size[1] // 100)
 hero_pos = board.get_coords_by_cell((board.width // 2, board.height))
-hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size - 10), all_sprites)
+hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size - 10), hero_sprites)
+all_sprites.add(hero)
 clock = pygame.time.Clock()
+camera = Camera()
 while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -272,30 +345,38 @@ while running:
                 hero.move(board.cell_size, 0)
     for i, speed, ticks in board.road_lines:
         if 0 <= pygame.time.get_ticks() % ticks <= 5:
+            print(board.board)
             if speed >= 0:
-                Car(car_sprites, (-400, board.board[i][0].rect.y - 45), speed)
+                car = Car(car_sprites, (-400, board.board[i][0].rect.y - 45), speed)
             else:
-                Car(car_sprites, (screen.get_width(), board.board[i][0].rect.y - 45), speed)
+                car = Car(car_sprites, (screen.get_width(), board.board[i][0].rect.y - 45), speed)
+            all_sprites.add(car)
     for i, speed, ticks in board.train_lines:
         if 0 <= pygame.time.get_ticks() % ticks <= 2:
             if speed >= 0:
                 cord1 = -400
                 delta = -200
                 for tr in range(random.randint(8, 16)):
-                    Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y - 15), speed)
+                    train = Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y - 15), speed)
+                    all_sprites.add(train)
             else:
                 cord1 = screen.get_width()
                 delta = 200
                 for tr in range(random.randint(8, 16)):
-                    Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y - 15), speed)
+                    train = Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y - 15), speed)
+                    all_sprites.add(train)
+    if hero.rect.y <= board.get_coords_by_cell((0, 4))[1]:
+        board.regenerate(1)
+        camera.go(group=all_sprites, delt=board.cell_size)
 
 
 
     screen.fill((0, 255, 0))
     board.render(screen)
     rocks_sprites.draw(screen)
-    all_sprites.draw(screen)
-    all_sprites.update()
+    enviroment_sprites.draw(screen)
+    hero_sprites.draw(screen)
+    hero_sprites.update()
     car_sprites.draw(screen)
     tree_sprites.draw(screen)
     train_sprites.draw(screen)

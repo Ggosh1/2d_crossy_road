@@ -1,20 +1,19 @@
 # -*- coding: utf8 -*-
 
-import pygame
-import math
 import os
-import sys
 import random
-from pygame.locals import *  # это добавляет обработку клавиш
+import sys
 
+import pygame
 
 pygame.init()
 running, alive = True, True
+moving = True
 w, h = pygame.display.Info().current_w, pygame.display.Info().current_h
 w -= w % 100
 h -= h % 100
 size = w, h
-screen = pygame.display.set_mode(size)
+main_screen = pygame.display.set_mode(size)
 enviroment_sprites = pygame.sprite.Group()
 hero_sprites = pygame.sprite.Group()
 rocks_sprites = pygame.sprite.Group()
@@ -56,18 +55,27 @@ class AnimatedSprite(pygame.sprite.Sprite):
         self.rect = pygame.Rect(0, 0, sheet.get_width() // columns,
                                 sheet.get_height() // rows)
         for j in range(rows):
-            for i in range(columns):
-                frame_location = (self.rect.w * i, self.rect.h * j)
+            for x in range(columns):
+                frame_location = (self.rect.w * x, self.rect.h * j)
                 self.frames.append(sheet.subsurface(pygame.Rect(
                     frame_location, self.rect.size)))
 
     def update(self, scale):
-        self.cur_frame = (self.cur_frame + 1) % len(self.frames)
-        self.image = pygame.transform.scale(self.frames[self.cur_frame], scale)
+        if moving:
+            self.cur_frame = (self.cur_frame + 1) % len(self.frames)
+            self.image = pygame.transform.scale(self.frames[self.cur_frame], scale)
+
+
+def game_end():
+    global alive
+    alive = False
 
 
 class Board:
     def __init__(self, width, height):
+        self.water_lines = None
+        self.train_lines = None
+        self.road_lines = None
         self.width = width
         self.height = height
         self.board = [[0] * width for _ in range(height)]
@@ -87,40 +95,36 @@ class Board:
         self.top = top
         self.cell_size = cell_size
 
-    def game_end(self):
-        global alive
-        alive = False
-
     def render(self, screen):
-        for i in range(self.height):
+        for x in range(self.height):
             for j in range(self.width):
-                if i * self.cell_size + self.top + self.cell_size <= screen.get_size()[
-                    1] and j * self.cell_size + self.left + self.cell_size <= screen.get_size()[0]:
+                if x * self.cell_size + self.top + self.cell_size <= screen.get_size()[1] \
+                        and j * self.cell_size + self.left + self.cell_size <= screen.get_size()[0]:
                     pygame.draw.rect(screen, pygame.Color(255, 255, 255),
-                                     (j * self.cell_size + self.left, i * self.cell_size + self.top, self.cell_size,
+                                     (j * self.cell_size + self.left, x * self.cell_size + self.top, self.cell_size,
                                       self.cell_size), 1)
 
     def get_cell(self, mouse_pos):
-        if self.left < mouse_pos[0] < self.left + self.cell_size * self.width and self.top < mouse_pos[
-            1] < self.top + self.cell_size * self.height:
+        if self.left < mouse_pos[0] < self.left + self.cell_size * self.width \
+                and self.top < mouse_pos[1] < self.top + self.cell_size * self.height:
             column = (mouse_pos[0] - self.left) // self.cell_size
             row = (mouse_pos[1] - self.top) // self.cell_size
             return column, row
         else:
             return None
 
-    def get_coords_by_cell(self, cell):
-        if self.width >= cell[0] and self.height >= cell[1]:
-            return self.left + self.cell_size * (cell[0]), self.height + self.cell_size * (cell[1])
+    def get_coords_by_cell(self, given_cell):
+        if self.width >= given_cell[0] and self.height >= given_cell[1]:
+            return self.left + self.cell_size * (given_cell[0]), self.height + self.cell_size * (given_cell[1])
 
     def on_click(self, cell_coords):
         pass
 
     def get_click(self, mouse_pos):
-        cell = self.get_cell(mouse_pos)
-        self.on_click(cell)
+        new_cell = self.get_cell(mouse_pos)
+        self.on_click(new_cell)
 
-    def generate_line(self, i, add_offset):
+    def generate_line(self, x, add_offset):
         line = []
         type_line = random.choices(['safe', 'road', 'train', 'water'],
                                    weights=[self.chance_safe_line, self.chance_road_line,
@@ -129,14 +133,15 @@ class Board:
         if type_line[0] == 'safe':  # 20% шанс, что линия станет безопасной
             for j in range(self.width):
                 if 100 - random.randint(0,
-                                        100) < self.chance_tree_spawn:  # 10% шанс для каждой клетки, что заспавнится дерево
-                    pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[
+                                        100) < self.chance_tree_spawn:  # 10% шанс для каждой клетки, что заспавнится
+                    # дерево
+                    pos = self.get_coords_by_cell((j, x))[0], self.get_coords_by_cell((j, x))[
                         1] - self.cell_size - add_offset
                     tree = Tree(tree_sprites, pos)
                     all_sprites.add(tree)
                     line.append(tree)
                 elif 100 - random.randint(0, 100) < self.chance_rock_spawn:
-                    pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - add_offset
+                    pos = self.get_coords_by_cell((j, x))[0], self.get_coords_by_cell((j, x))[1] - add_offset
                     rock = Rock(rocks_sprites, pos)
                     all_sprites.add(rock)
                     line.append(rock)
@@ -144,65 +149,65 @@ class Board:
                     line.append(0)
         elif type_line[0] == 'road':
             for j in range(self.width):
-                pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - add_offset
+                pos = self.get_coords_by_cell((j, x))[0], self.get_coords_by_cell((j, x))[1] - add_offset
                 road = Road(enviroment_sprites, pos)
                 all_sprites.add(road)
                 line.append(road)
             line_speed = random.randint(-15, -3) * random.choice([-1, 1])
             timer_interval = 6000 // abs(line_speed) + random.randint(100, 200)
-            self.road_lines.append([i, line_speed, timer_interval])
+            self.road_lines.append([x, line_speed, timer_interval])
         elif type_line[0] == 'train':
             for j in range(self.width):
-                pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - add_offset
+                pos = self.get_coords_by_cell((j, x))[0], self.get_coords_by_cell((j, x))[1] - add_offset
                 rails = Rails(enviroment_sprites, pos)
                 all_sprites.add(rails)
                 line.append(rails)
             line_speed = random.randint(-30, -14) * random.choice([-1, 1])
             timer_interval = 25000 // abs(line_speed)
-            self.train_lines.append([i, line_speed, timer_interval])
+            self.train_lines.append([x, line_speed, timer_interval])
         elif type_line[0] == 'water':
             for j in range(self.width):
-                pos = self.get_coords_by_cell((j, i))[0], self.get_coords_by_cell((j, i))[1] - add_offset
+                pos = self.get_coords_by_cell((j, x))[0], self.get_coords_by_cell((j, x))[1] - add_offset
                 water = Water(enviroment_sprites, pos)
                 all_sprites.add(water)
                 line.append(water)
             line_speed = random.randint(-8, -4) * random.choice([-1, 1])
             timer_interval = 3000 // abs(line_speed) + random.randint(100, 200)
-            self.water_lines.append([i, line_speed, timer_interval])
+            self.water_lines.append([x, line_speed, timer_interval])
         return line
 
     def generate_area(self):
         self.road_lines = []
         self.train_lines = []
         self.water_lines = []
-        for i in range(0, self.height - 1):
-            line = self.generate_line(i, 0)
-            self.board[i] = line
+        for x in range(0, self.height - 1):
+            line = self.generate_line(x, 0)
+            self.board[x] = line
 
     def regenerate(self, shift):
-        for i in range(self.height - 1, 0, -1):
-            self.board[i] = self.board[i - shift]
-        i = 0
-        while i < len(self.road_lines):
-            if self.road_lines[i][0] == self.height - 1:
-                self.road_lines.pop(i)
+        for x in range(self.height - 1, 0, -1):
+            self.board[x] = self.board[x - shift]
+        x = 0
+        while x < len(self.road_lines):
+            if self.road_lines[x][0] == self.height - 1:
+                self.road_lines.pop(x)
             else:
-                self.road_lines[i][0] += 1
-                i += 1
-        i = 0
-        while i < len(self.train_lines):
-            if self.train_lines[i][0] == self.height - 1:
-                self.train_lines.pop(i)
+                self.road_lines[x][0] += 1
+                x += 1
+        x = 0
+        while x < len(self.train_lines):
+            if self.train_lines[x][0] == self.height - 1:
+                self.train_lines.pop(x)
             else:
-                self.train_lines[i][0] += 1
-                i += 1
-        i = 0
-        while i < len(self.water_lines):
-            if self.water_lines[i][0] == self.height - 1:
-                self.water_lines.pop(i)
+                self.train_lines[x][0] += 1
+                x += 1
+        x = 0
+        while x < len(self.water_lines):
+            if self.water_lines[x][0] == self.height - 1:
+                self.water_lines.pop(x)
             else:
-                self.water_lines[i][0] += 1
-                i += 1
+                self.water_lines[x][0] += 1
+                x += 1
         line = self.generate_line(0, self.cell_size)
         self.board[0] = line
 
@@ -248,13 +253,13 @@ class Hero(AnimatedSprite):
         self.left = True
 
     def move(self, x, y, do_flip):
-        if self.rect.top + y <= board.height * board.cell_size:
+        if moving and self.rect.top + y <= board.height * board.cell_size:
             self.rect = self.rect.move(x, y)
-        if self.rect.left < 0:
+        if moving and self.rect.left < 0:
             self.rect = self.rect.move((board.width - 1) * board.cell_size, 0)
-        elif self.rect.left >= (board.width - 1) * board.cell_size:
+        elif moving and self.rect.left >= (board.width - 1) * board.cell_size:
             self.rect = self.rect.move((1 - board.width) * board.cell_size, 0)
-        if do_flip:
+        if moving and do_flip:
             if x < 0:
                 self.left = True
             elif x > 0:
@@ -262,11 +267,11 @@ class Hero(AnimatedSprite):
 
     def update(self):
         super().update((80, 80))
-        if not self.left:
+        if not self.left and moving:
             self.image = pygame.transform.flip(self.image, True, False)
-        log = pygame.sprite.spritecollideany(self, log_sprites)
-        if log and log.rect.x - self.rect.x <= -33:
-            self.move(log.speed, 0, False)
+        new_log = pygame.sprite.spritecollideany(self, log_sprites)
+        if moving and new_log and new_log.rect.x - self.rect.x <= -33:
+            self.move(new_log.speed, 0, False)
 
 
 class Tree(pygame.sprite.Sprite):
@@ -299,12 +304,12 @@ class Car(pygame.sprite.Sprite):
                   (pygame.transform.scale(load_image('car4.png', -1), (150, 80)), 3),
                   (pygame.transform.scale(load_image('car5.png', -1), (150, 80)), 4),
                   (pygame.transform.scale(load_image('car6.png', -1), (150, 80)), 5)
-    ]
+                  ]
 
-    def __init__(self, group, pos, speed):
+    def __init__(self, group, pos, given_speed):
         super().__init__(group)
         car_number = random.choice(Car.image_list)[1]
-        if speed >= 0:
+        if given_speed >= 0:
             self.image = pygame.transform.flip(Car.image_list[car_number][0], True, False)
         else:
             self.image = Car.image_list[car_number][0]
@@ -312,55 +317,61 @@ class Car(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.x = pos[0]
         self.rect.y = pos[1] + 10
-        self.speed = speed
+        self.speed = given_speed
 
     def update(self):
-        if not pygame.sprite.collide_mask(self, hero):
+        global count
+        if not pygame.sprite.collide_mask(self, hero) and moving:
             self.rect = self.rect.move(self.speed, 0)
         else:
-            Board.game_end(self)
+            count += 1
+            game_end()
 
 
 class Log(pygame.sprite.Sprite):
     image = pygame.transform.scale(load_image('log.png', -1), (300, 130))
 
-    def __init__(self, group, pos, speed):
+    def __init__(self, group, pos, speed_given):
         super().__init__(group)
         self.image = pygame.transform.flip(Log.image, True, False)
         self.rect = self.image.get_rect()
         self.rect.size = (175, 80)
         self.rect.x = pos[0]
         self.rect.y = pos[1] - 4
-        self.speed = speed
+        self.speed = speed_given
 
     def update(self):
-        self.rect = self.rect.move(self.speed, 0)
+        if moving:
+            self.rect = self.rect.move(self.speed, 0)
 
 
 class Train(pygame.sprite.Sprite):
     image = pygame.transform.scale(load_image('train.jpg', -1), (200, 90))
 
-    def __init__(self, group, pos, speed):
+    def __init__(self, group, pos, speed_given):
         super().__init__(group)
-        if speed >= 0:
+        if speed_given >= 0:
             self.image = pygame.transform.flip(Train.image, True, False)
         else:
             self.image = Train.image
         self.rect = self.image.get_rect()
         self.rect.x = pos[0]
         self.rect.y = pos[1]
-        self.speed = speed
+        self.speed = speed_given
 
     def update(self):
-        if not pygame.sprite.collide_mask(self, hero):
+        global count
+        if not pygame.sprite.collide_mask(self, hero) and moving:
             self.rect = self.rect.move(self.speed, 0)
         else:
-            Board.game_end(self)
+            count += 1
+            game_end()
 
 
 class Camera:
 
-    def go(self, group, delt):
+    @staticmethod
+    def go(group, delt):
         for el in group:
             el.rect = el.rect.move(0, delt)
 
@@ -371,77 +382,94 @@ hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size), hero_sprites)
 all_sprites.add(hero)
 clock = pygame.time.Clock()
 camera = Camera()
+count = 0
 while running:
     if not alive:
-        screen.blit(screen, (0, 0))
+        pygame.time.wait(300)
+        moving = False
         largeFont = pygame.font.SysFont('comicsans', 80)
         lastScore = largeFont.render('Best Score: 0', 1,
                                      (255, 255, 255))
         currentScore = largeFont.render('Score: 0', 1, (255, 255, 255))
-        screen.blit(lastScore, ((board.width * board.cell_size) / 2 - lastScore.get_width() / 2, 150))
-        screen.blit(currentScore, ((board.width * board.cell_size) / 2 - currentScore.get_width() / 2, 240))
+        main_screen.fill((0, 0, 0))
+        main_screen.blit(lastScore, ((board.width * board.cell_size) / 2 - lastScore.get_width() / 2, 150))
+        main_screen.blit(currentScore, ((board.width * board.cell_size) / 2 - currentScore.get_width() / 2, 240))
         pygame.display.update()
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-        if event.type == pygame.MOUSEBUTTONDOWN:
-            print(board.get_cell(event.pos))
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_w or event.key == pygame.K_UP:
-                hero.move(0, -board.cell_size, True)
-            if event.key == pygame.K_a or event.key == pygame.K_LEFT:
-                hero.move(-board.cell_size, 0, True)
-            if event.key == pygame.K_s or event.key == pygame.K_DOWN:
-                hero.move(0, board.cell_size, True)
-            if event.key == pygame.K_d or event.key == pygame.K_RIGHT:
-                hero.move(board.cell_size, 0, True)
-    for i, speed, ticks in board.road_lines:
-        if 0 <= pygame.time.get_ticks() % ticks <= 5:
-            if speed >= 0:
-                car = Car(car_sprites, (-400, board.board[i][0].rect.y), speed)
-            else:
-                car = Car(car_sprites, (screen.get_width(), board.board[i][0].rect.y), speed)
-            all_sprites.add(car)
-    for i, speed, ticks in board.train_lines:
-        if 0 <= pygame.time.get_ticks() % ticks <= 2:
-            if speed >= 0:
-                cord1 = -400
-                delta = -200
-                for tr in range(random.randint(8, 16)):
-                    train = Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y), speed)
-                    all_sprites.add(train)
-            else:
-                cord1 = screen.get_width()
-                delta = 200
-                for tr in range(random.randint(8, 16)):
-                    train = Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y), speed)
-                    all_sprites.add(train)
-    for i, speed, ticks in board.water_lines:
-        if 0 <= pygame.time.get_ticks() % ticks <= 5:
-            if speed >= 0:
-                log = Log(log_sprites, (-400, board.board[i][0].rect.y), speed)
-            else:
-                log = Log(log_sprites, (screen.get_width(), board.board[i][0].rect.y), speed)
-            all_sprites.add(log)
-    if hero.rect.y <= board.get_coords_by_cell((0, 4))[1]:
-        board.regenerate(1)
-        camera.go(group=all_sprites, delt=board.cell_size)
-    cell = board.get_cell((hero.rect.x, hero.rect.y))
-    if cell is not None and board.board[cell[1]][0].__class__ == Water and pygame.sprite.spritecollideany(hero, log_sprites) is None:
-        board.game_end()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_SPACE:
+                    alive = True
+                    moving = True
+                    car_sprites = pygame.sprite.Group()
+                    train_sprites = pygame.sprite.Group()
+                    log_sprites = pygame.sprite.Group()
+                    hero_sprites = pygame.sprite.Group()
+                    count = 0
+                    hero_pos = board.get_coords_by_cell((board.width // 2, board.height))
+                    hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size), hero_sprites)
+    else:
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                print(board.get_cell(event.pos))
+            if event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_w or event.key == pygame.K_UP:
+                    hero.move(0, -board.cell_size, True)
+                if event.key == pygame.K_a or event.key == pygame.K_LEFT:
+                    hero.move(-board.cell_size, 0, True)
+                if event.key == pygame.K_s or event.key == pygame.K_DOWN:
+                    hero.move(0, board.cell_size, True)
+                if event.key == pygame.K_d or event.key == pygame.K_RIGHT:
+                    hero.move(board.cell_size, 0, True)
+        for i, speed, ticks in board.road_lines:
+            if 0 <= pygame.time.get_ticks() % ticks <= 5:
+                if speed >= 0:
+                    car = Car(car_sprites, (-400, board.board[i][0].rect.y), speed)
+                else:
+                    car = Car(car_sprites, (main_screen.get_width(), board.board[i][0].rect.y), speed)
+                all_sprites.add(car)
+        for i, speed, ticks in board.train_lines:
+            if 0 <= pygame.time.get_ticks() % ticks <= 2:
+                if speed >= 0:
+                    cord1 = -400
+                    delta = -200
+                    for tr in range(random.randint(8, 16)):
+                        train = Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y), speed)
+                        all_sprites.add(train)
+                else:
+                    cord1 = main_screen.get_width()
+                    delta = 200
+                    for tr in range(random.randint(8, 16)):
+                        train = Train(train_sprites, (cord1 + delta * tr, board.board[i][0].rect.y), speed)
+                        all_sprites.add(train)
+        for i, speed, ticks in board.water_lines:
+            if 0 <= pygame.time.get_ticks() % ticks <= 5:
+                if speed >= 0:
+                    log = Log(log_sprites, (-400, board.board[i][0].rect.y), speed)
+                else:
+                    log = Log(log_sprites, (main_screen.get_width(), board.board[i][0].rect.y), speed)
+                all_sprites.add(log)
+        if hero.rect.y <= board.get_coords_by_cell((0, 4))[1]:
 
-    screen.fill((0, 255, 0))
-    board.render(screen)
-    rocks_sprites.draw(screen)
-    enviroment_sprites.draw(screen)
-    log_sprites.draw(screen)
-    hero_sprites.draw(screen)
-    car_sprites.draw(screen)
-    tree_sprites.draw(screen)
-    train_sprites.draw(screen)
-    log_sprites.update()
-    hero_sprites.update()
-    car_sprites.update()
-    train_sprites.update()
-    clock.tick(50)
-    pygame.display.flip()
+            board.regenerate(1)
+            camera.go(group=all_sprites, delt=board.cell_size)
+        cell = board.get_cell((hero.rect.x, hero.rect.y))
+
+        main_screen.fill((0, 255, 0))
+        board.render(main_screen)
+        rocks_sprites.draw(main_screen)
+        enviroment_sprites.draw(main_screen)
+        log_sprites.draw(main_screen)
+        hero_sprites.draw(main_screen)
+        car_sprites.draw(main_screen)
+        tree_sprites.draw(main_screen)
+        train_sprites.draw(main_screen)
+        log_sprites.update()
+        hero_sprites.update()
+        car_sprites.update()
+        train_sprites.update()
+        clock.tick(50)
+        pygame.display.flip()

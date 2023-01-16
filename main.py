@@ -9,7 +9,6 @@ import pygame
 pygame.init()
 running = True
 moving = True
-# current_score = 0
 w, h = pygame.display.Info().current_w, pygame.display.Info().current_h
 w -= w % 100
 h -= h % 100
@@ -381,50 +380,53 @@ hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size), hero_sprites)
 all_sprites.add(hero)
 clock = pygame.time.Clock()
 camera = Camera()
-
+should_update = True
 while running:
     if not hero.alive:
-        pygame.time.wait(300)
-        moving = False
-        copy_score = hero.movements
-        best_score = str(open('data\\best_score.txt', 'r').readline().strip('\n'))
-        largeFont = pygame.font.SysFont('comicsans', 80)
-        lastScore = largeFont.render(f'Best Score: {best_score}', 1,
-                                     (255, 255, 255))
-        currentScore = largeFont.render(f'Score: {copy_score}', 1, (255, 255, 255))
-        help_label = largeFont.render('Press "space" to restart', 1, (255, 255, 255))
-        main_screen.fill((0, 0, 0))
-        main_screen.blit(lastScore, ((board.width * board.cell_size) / 2 - lastScore.get_width() / 2, 150))
-        main_screen.blit(currentScore, ((board.width * board.cell_size) / 2 - currentScore.get_width() / 2, 240))
-        main_screen.blit(help_label, ((board.width * board.cell_size) / 2 - help_label.get_width() / 2, 330))
-        if hero.movements > int(best_score):
-            file = open('data\\best_score.txt', 'r+')
-            file.truncate(0)
-            file.write(str(hero.movements))
-        hero.movements = 0
-        pygame.display.update()
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                running = False
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_SPACE:
-                    moving = True
-                    enviroment_sprites = pygame.sprite.Group()
-                    hero_sprites = pygame.sprite.Group()
-                    rocks_sprites = pygame.sprite.Group()
-                    tree_sprites = pygame.sprite.Group()
-                    car_sprites = pygame.sprite.Group()
-                    train_sprites = pygame.sprite.Group()
-                    log_sprites = pygame.sprite.Group()
-                    all_sprites = pygame.sprite.Group()
-                    timer_event = pygame.USEREVENT + 1
-                    board = Board(size[0] // 100 + 1, size[1] // 100)
-                    hero_pos = board.get_coords_by_cell((board.width // 2, board.height))
-                    hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size), hero_sprites)
-                    all_sprites.add(hero)
-                    clock = pygame.time.Clock()
-                    camera = Camera()
-
+        if should_update:
+            pygame.time.wait(300)
+            moving = False
+            copy_score = hero.movements
+            best_score = str(open('data\\best_score.txt', 'r').readline().strip('\n'))
+            largeFont = pygame.font.SysFont('comicsans', 80)
+            lastScore = largeFont.render(f'Best Score: {best_score}', 1,
+                                         (255, 255, 255))
+            currentScore = largeFont.render(f'Score: {copy_score}', 1, (255, 255, 255))
+            help_label = largeFont.render('Press "space" to restart', 1, (255, 255, 255))
+            main_screen.fill((0, 0, 0))
+            main_screen.blit(lastScore, ((board.width * board.cell_size) / 2 - lastScore.get_width() / 2, 150))
+            main_screen.blit(currentScore, ((board.width * board.cell_size) / 2 - currentScore.get_width() / 2, 240))
+            main_screen.blit(help_label, ((board.width * board.cell_size) / 2 - help_label.get_width() / 2, 330))
+            if hero.movements > int(best_score):
+                file = open('data\\best_score.txt', 'r+')
+                file.truncate(0)
+                file.write(str(hero.movements))
+            hero.movements = 0
+            pygame.display.update()
+            should_update = False
+        else:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    running = False
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_SPACE:
+                        moving = True
+                        should_update = True
+                        enviroment_sprites = pygame.sprite.Group()
+                        hero_sprites = pygame.sprite.Group()
+                        rocks_sprites = pygame.sprite.Group()
+                        tree_sprites = pygame.sprite.Group()
+                        car_sprites = pygame.sprite.Group()
+                        train_sprites = pygame.sprite.Group()
+                        log_sprites = pygame.sprite.Group()
+                        all_sprites = pygame.sprite.Group()
+                        timer_event = pygame.USEREVENT + 1
+                        board = Board(size[0] // 100 + 1, size[1] // 100)
+                        hero_pos = board.get_coords_by_cell((board.width // 2, board.height))
+                        hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size), hero_sprites)
+                        all_sprites.add(hero)
+                        clock = pygame.time.Clock()
+                        camera = Camera()
     else:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:

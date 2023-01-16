@@ -17,7 +17,7 @@ size = w, h
 main_screen = pygame.display.set_mode(size)
 
 
-def load_image(name, colorkey=None):
+def load_image(name, colorkey=None):  # загрузка изображения спрайта
     fullname = os.path.join('data', name)
     # если файл не существует, то выходим
     if not os.path.isfile(fullname):
@@ -34,7 +34,7 @@ def load_image(name, colorkey=None):
     return image
 
 
-class AnimatedSprite(pygame.sprite.Sprite):
+class AnimatedSprite(pygame.sprite.Sprite):  # загрузка изображений анимированного спрайта
     def __init__(self, sheet, columns, rows, x, y, *group):
         super().__init__(*group)
         self.frames = []
@@ -58,7 +58,7 @@ class AnimatedSprite(pygame.sprite.Sprite):
             self.image = pygame.transform.scale(self.frames[self.cur_frame], scale)
 
 
-class Board:
+class Board:  # класс поля, необходим для хранения информации о объектах на поле и их состоянии
     def __init__(self, width, height):
         self.water_lines = None
         self.train_lines = None
@@ -108,11 +108,11 @@ class Board:
                                    weights=[self.chance_safe_line, self.chance_road_line,
                                             self.chance_train_line, self.chance_train_line],
                                    k=1)
-        if type_line[0] == 'safe':  # 20% шанс, что линия станет безопасной
+        if type_line[0] == 'safe':
             for j in range(self.width):
                 if 100 - random.randint(0,
-                                        100) < self.chance_tree_spawn:  # 10% шанс для каждой клетки, что заспавнится
-                    # дерево
+                                        100) < self.chance_tree_spawn:
+
                     pos = self.get_coords_by_cell((j, x))[0], self.get_coords_by_cell((j, x))[
                         1] - self.cell_size - add_offset
                     tree = Tree(tree_sprites, pos)
@@ -190,7 +190,7 @@ class Board:
         self.board[0] = line
 
 
-class Rails(pygame.sprite.Sprite):
+class Rails(pygame.sprite.Sprite):  # рельсы
     image = pygame.transform.scale(load_image('rails.jpg', -1), (110, 120))
 
     def __init__(self, group, pos):
@@ -201,7 +201,7 @@ class Rails(pygame.sprite.Sprite):
         self.rect.y = pos[1] - 22
 
 
-class Road(pygame.sprite.Sprite):
+class Road(pygame.sprite.Sprite):  # дорога
     image = pygame.transform.scale(load_image('road2.jpg'), (100, 100))
 
     def __init__(self, group, pos):
@@ -212,7 +212,7 @@ class Road(pygame.sprite.Sprite):
         self.rect.y = pos[1] - 10
 
 
-class Water(pygame.sprite.Sprite):
+class Water(pygame.sprite.Sprite):  # вода
     image = pygame.transform.scale(load_image('water.png'), (100, 100))
 
     def __init__(self, group, pos):
@@ -223,7 +223,7 @@ class Water(pygame.sprite.Sprite):
         self.rect.y = pos[1] - 10
 
 
-class Hero(AnimatedSprite):
+class Hero(AnimatedSprite):  # персонаж
     hero_image = load_image('ch.png')
 
     def __init__(self, pos, *group):
@@ -266,7 +266,7 @@ class Hero(AnimatedSprite):
             self.move(new_log.speed, 0, False)
 
 
-class Tree(pygame.sprite.Sprite):
+class Tree(pygame.sprite.Sprite):  # дерево
     image = pygame.transform.scale(load_image('tree4.png'), (95, 190))
 
     def __init__(self, group, pos):
@@ -278,7 +278,7 @@ class Tree(pygame.sprite.Sprite):
         self.rect.y = pos[1] - 2
 
 
-class Rock(pygame.sprite.Sprite):
+class Rock(pygame.sprite.Sprite):  # камень
     image = pygame.transform.scale(load_image('rock2.png'), (85, 70))
 
     def __init__(self, group, pos):
@@ -289,7 +289,7 @@ class Rock(pygame.sprite.Sprite):
         self.rect.y = pos[1] + random.randint(-9, 14)
 
 
-class Car(pygame.sprite.Sprite):
+class Car(pygame.sprite.Sprite):  # машина
     image_list = [(pygame.transform.scale(load_image('car.png', -1), (150, 100)), 0),
                   (pygame.transform.scale(load_image('car2.png', -1), (150, 100)), 1),
                   (pygame.transform.scale(load_image('car3.png', -1), (150, 100)), 2),
@@ -319,7 +319,7 @@ class Car(pygame.sprite.Sprite):
             hero.game_end()
 
 
-class Log(pygame.sprite.Sprite):
+class Log(pygame.sprite.Sprite):  # бревно
     image = pygame.transform.scale(load_image('log.png', -1), (300, 130))
 
     def __init__(self, group, pos, speed_given):
@@ -336,7 +336,7 @@ class Log(pygame.sprite.Sprite):
             self.rect = self.rect.move(self.speed, 0)
 
 
-class Train(pygame.sprite.Sprite):
+class Train(pygame.sprite.Sprite):  # поезд
     image = pygame.transform.scale(load_image('train.jpg', -1), (200, 90))
 
     def __init__(self, group, pos, speed_given):
@@ -358,7 +358,7 @@ class Train(pygame.sprite.Sprite):
             hero.game_end()
 
 
-class Camera:
+class Camera:  # камера
 
     @staticmethod
     def go(group, delt):
@@ -429,16 +429,14 @@ while running:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-            if event.type == pygame.MOUSEBUTTONDOWN:
-                print(board.get_cell(event.pos))
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_w or event.key == pygame.K_UP:
+                if event.key == pygame.K_w:
                     hero.move(0, -board.cell_size, True)
-                if event.key == pygame.K_a or event.key == pygame.K_LEFT:
+                if event.key == pygame.K_a:
                     hero.move(-board.cell_size, 0, True)
-                if event.key == pygame.K_s or event.key == pygame.K_DOWN:
+                if event.key == pygame.K_s:
                     hero.move(0, board.cell_size, True)
-                if event.key == pygame.K_d or event.key == pygame.K_RIGHT:
+                if event.key == pygame.K_d:
                     hero.move(board.cell_size, 0, True)
         for i, speed, ticks in board.road_lines:
             if 0 <= pygame.time.get_ticks() % ticks <= 5:

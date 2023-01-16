@@ -7,22 +7,13 @@ import sys
 import pygame
 
 pygame.init()
-running, alive = True, True
+running = True
 moving = True
 w, h = pygame.display.Info().current_w, pygame.display.Info().current_h
 w -= w % 100
 h -= h % 100
 size = w, h
 main_screen = pygame.display.set_mode(size)
-enviroment_sprites = pygame.sprite.Group()
-hero_sprites = pygame.sprite.Group()
-rocks_sprites = pygame.sprite.Group()
-tree_sprites = pygame.sprite.Group()
-car_sprites = pygame.sprite.Group()
-train_sprites = pygame.sprite.Group()
-log_sprites = pygame.sprite.Group()
-all_sprites = pygame.sprite.Group()
-timer_event = pygame.USEREVENT + 1
 
 
 def load_image(name, colorkey=None):
@@ -66,11 +57,6 @@ class AnimatedSprite(pygame.sprite.Sprite):
             self.image = pygame.transform.scale(self.frames[self.cur_frame], scale)
 
 
-def game_end():
-    global alive
-    alive = False
-
-
 class Board:
     def __init__(self, width, height):
         self.water_lines = None
@@ -95,14 +81,7 @@ class Board:
         self.top = top
         self.cell_size = cell_size
 
-    def render(self, screen):
-        for x in range(self.height):
-            for j in range(self.width):
-                if x * self.cell_size + self.top + self.cell_size <= screen.get_size()[1] \
-                        and j * self.cell_size + self.left + self.cell_size <= screen.get_size()[0]:
-                    pygame.draw.rect(screen, pygame.Color(255, 255, 255),
-                                     (j * self.cell_size + self.left, x * self.cell_size + self.top, self.cell_size,
-                                      self.cell_size), 1)
+
 
     def get_cell(self, mouse_pos):
         if self.left < mouse_pos[0] < self.left + self.cell_size * self.width \
@@ -136,7 +115,7 @@ class Board:
                                         100) < self.chance_tree_spawn:  # 10% шанс для каждой клетки, что заспавнится
                     # дерево
                     pos = self.get_coords_by_cell((j, x))[0], self.get_coords_by_cell((j, x))[
-                        1] - self.cell_size - add_offset
+                                                                  1] - self.cell_size - add_offset
                     tree = Tree(tree_sprites, pos)
                     all_sprites.add(tree)
                     line.append(tree)
@@ -251,6 +230,8 @@ class Hero(AnimatedSprite):
     def __init__(self, pos, *group):
         super().__init__(Hero.hero_image, 4, 4, pos[0], pos[1], *group)
         self.left = True
+        self.alive = True
+        self.count = 0
 
     def move(self, x, y, do_flip):
         if moving and self.rect.top + y <= board.height * board.cell_size:
@@ -265,8 +246,15 @@ class Hero(AnimatedSprite):
             elif x > 0:
                 self.left = False
 
+    def game_end(self):
+        self.alive = False
+
     def update(self):
         super().update((80, 80))
+        cell = board.get_cell((main_screen.get_width() // 2, hero.rect.y))
+        if cell is not None and board.board[cell[1]][0].__class__ == Water and (
+                self.rect.x <= -80 or self.rect.x >= main_screen.get_width() - 10):
+            hero.game_end()
         if not self.left and moving:
             self.image = pygame.transform.flip(self.image, True, False)
         new_log = pygame.sprite.spritecollideany(self, log_sprites)
@@ -320,12 +308,11 @@ class Car(pygame.sprite.Sprite):
         self.speed = given_speed
 
     def update(self):
-        global count
         if not pygame.sprite.collide_mask(self, hero) and moving:
             self.rect = self.rect.move(self.speed, 0)
         else:
-            count += 1
-            game_end()
+            hero.count += 1
+            hero.game_end()
 
 
 class Log(pygame.sprite.Sprite):
@@ -335,7 +322,7 @@ class Log(pygame.sprite.Sprite):
         super().__init__(group)
         self.image = pygame.transform.flip(Log.image, True, False)
         self.rect = self.image.get_rect()
-        self.rect.size = (175, 80)
+        self.rect.size = (185, 80)
         self.rect.x = pos[0]
         self.rect.y = pos[1] - 4
         self.speed = speed_given
@@ -360,12 +347,11 @@ class Train(pygame.sprite.Sprite):
         self.speed = speed_given
 
     def update(self):
-        global count
         if not pygame.sprite.collide_mask(self, hero) and moving:
             self.rect = self.rect.move(self.speed, 0)
         else:
-            count += 1
-            game_end()
+            hero.count += 1
+            hero.game_end()
 
 
 class Camera:
@@ -376,39 +362,57 @@ class Camera:
             el.rect = el.rect.move(0, delt)
 
 
+enviroment_sprites = pygame.sprite.Group()
+hero_sprites = pygame.sprite.Group()
+rocks_sprites = pygame.sprite.Group()
+tree_sprites = pygame.sprite.Group()
+car_sprites = pygame.sprite.Group()
+train_sprites = pygame.sprite.Group()
+log_sprites = pygame.sprite.Group()
+all_sprites = pygame.sprite.Group()
+timer_event = pygame.USEREVENT + 1
 board = Board(size[0] // 100 + 1, size[1] // 100)
 hero_pos = board.get_coords_by_cell((board.width // 2, board.height))
 hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size), hero_sprites)
 all_sprites.add(hero)
 clock = pygame.time.Clock()
 camera = Camera()
-count = 0
+
 while running:
-    if not alive:
+    if not hero.alive:
         pygame.time.wait(300)
         moving = False
         largeFont = pygame.font.SysFont('comicsans', 80)
         lastScore = largeFont.render('Best Score: 0', 1,
                                      (255, 255, 255))
         currentScore = largeFont.render('Score: 0', 1, (255, 255, 255))
+        help_label = largeFont.render('Press "space" to restart', 1, (255, 255, 255))
         main_screen.fill((0, 0, 0))
         main_screen.blit(lastScore, ((board.width * board.cell_size) / 2 - lastScore.get_width() / 2, 150))
         main_screen.blit(currentScore, ((board.width * board.cell_size) / 2 - currentScore.get_width() / 2, 240))
+        main_screen.blit(help_label, ((board.width * board.cell_size) / 2 - help_label.get_width() / 2, 330))
         pygame.display.update()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
-                    alive = True
                     moving = True
+                    enviroment_sprites = pygame.sprite.Group()
+                    hero_sprites = pygame.sprite.Group()
+                    rocks_sprites = pygame.sprite.Group()
+                    tree_sprites = pygame.sprite.Group()
                     car_sprites = pygame.sprite.Group()
                     train_sprites = pygame.sprite.Group()
                     log_sprites = pygame.sprite.Group()
-                    hero_sprites = pygame.sprite.Group()
-                    count = 0
+                    all_sprites = pygame.sprite.Group()
+                    timer_event = pygame.USEREVENT + 1
+                    board = Board(size[0] // 100 + 1, size[1] // 100)
                     hero_pos = board.get_coords_by_cell((board.width // 2, board.height))
                     hero = Hero((hero_pos[0], hero_pos[1] - board.cell_size), hero_sprites)
+                    all_sprites.add(hero)
+                    clock = pygame.time.Clock()
+                    camera = Camera()
     else:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -453,13 +457,16 @@ while running:
                     log = Log(log_sprites, (main_screen.get_width(), board.board[i][0].rect.y), speed)
                 all_sprites.add(log)
         if hero.rect.y <= board.get_coords_by_cell((0, 4))[1]:
-
             board.regenerate(1)
             camera.go(group=all_sprites, delt=board.cell_size)
+
         cell = board.get_cell((hero.rect.x, hero.rect.y))
 
+        if cell is not None and board.board[cell[1]][0].__class__ == Water and \
+                pygame.sprite.spritecollideany(hero, log_sprites) is None:
+            hero.game_end()
+
         main_screen.fill((0, 255, 0))
-        board.render(main_screen)
         rocks_sprites.draw(main_screen)
         enviroment_sprites.draw(main_screen)
         log_sprites.draw(main_screen)

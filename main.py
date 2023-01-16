@@ -9,6 +9,7 @@ import pygame
 pygame.init()
 running = True
 moving = True
+# current_score = 0
 w, h = pygame.display.Info().current_w, pygame.display.Info().current_h
 w -= w % 100
 h -= h % 100
@@ -81,8 +82,6 @@ class Board:
         self.top = top
         self.cell_size = cell_size
 
-
-
     def get_cell(self, mouse_pos):
         if self.left < mouse_pos[0] < self.left + self.cell_size * self.width \
                 and self.top < mouse_pos[1] < self.top + self.cell_size * self.height:
@@ -115,7 +114,7 @@ class Board:
                                         100) < self.chance_tree_spawn:  # 10% шанс для каждой клетки, что заспавнится
                     # дерево
                     pos = self.get_coords_by_cell((j, x))[0], self.get_coords_by_cell((j, x))[
-                                                                  1] - self.cell_size - add_offset
+                        1] - self.cell_size - add_offset
                     tree = Tree(tree_sprites, pos)
                     all_sprites.add(tree)
                     line.append(tree)
@@ -232,10 +231,15 @@ class Hero(AnimatedSprite):
         self.left = True
         self.alive = True
         self.count = 0
+        self.movements = 0
 
     def move(self, x, y, do_flip):
         if moving and self.rect.top + y <= board.height * board.cell_size:
             self.rect = self.rect.move(x, y)
+            if y < 0:
+                hero.movements += 1
+            elif y > 0:
+                hero.movements -= 1
         if moving and self.rect.left < 0:
             self.rect = self.rect.move((board.width - 1) * board.cell_size, 0)
         elif moving and self.rect.left >= (board.width - 1) * board.cell_size:
@@ -382,15 +386,22 @@ while running:
     if not hero.alive:
         pygame.time.wait(300)
         moving = False
+        copy_score = hero.movements
+        best_score = str(open('data\\best_score.txt', 'r').readline().strip('\n'))
         largeFont = pygame.font.SysFont('comicsans', 80)
-        lastScore = largeFont.render('Best Score: 0', 1,
+        lastScore = largeFont.render(f'Best Score: {best_score}', 1,
                                      (255, 255, 255))
-        currentScore = largeFont.render('Score: 0', 1, (255, 255, 255))
+        currentScore = largeFont.render(f'Score: {copy_score}', 1, (255, 255, 255))
         help_label = largeFont.render('Press "space" to restart', 1, (255, 255, 255))
         main_screen.fill((0, 0, 0))
         main_screen.blit(lastScore, ((board.width * board.cell_size) / 2 - lastScore.get_width() / 2, 150))
         main_screen.blit(currentScore, ((board.width * board.cell_size) / 2 - currentScore.get_width() / 2, 240))
         main_screen.blit(help_label, ((board.width * board.cell_size) / 2 - help_label.get_width() / 2, 330))
+        if hero.movements > int(best_score):
+            file = open('data\\best_score.txt', 'r+')
+            file.truncate(0)
+            file.write(str(hero.movements))
+        hero.movements = 0
         pygame.display.update()
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -413,6 +424,7 @@ while running:
                     all_sprites.add(hero)
                     clock = pygame.time.Clock()
                     camera = Camera()
+
     else:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:

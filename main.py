@@ -386,6 +386,7 @@ all_sprites.add(hero)
 clock = pygame.time.Clock()
 camera = Camera()
 should_update = True
+show_start_screen = True
 while running:
     if not hero.alive:
         if should_update:
@@ -441,14 +442,16 @@ while running:
             if event.type == pygame.QUIT:
                 running = False
             if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_w:
+                if event.key == pygame.K_w and not show_start_screen:
                     hero.move(0, -board.cell_size, True)
-                if event.key == pygame.K_a:
+                if event.key == pygame.K_a and not show_start_screen:
                     hero.move(-board.cell_size, 0, True)
-                if event.key == pygame.K_s:
+                if event.key == pygame.K_s and not show_start_screen:
                     hero.move(0, board.cell_size, True)
-                if event.key == pygame.K_d:
+                if event.key == pygame.K_d and not show_start_screen:
                     hero.move(board.cell_size, 0, True)
+                if event.key == pygame.K_SPACE and show_start_screen:
+                    show_start_screen = False
         for i, speed, ticks in board.road_lines:
             if 0 <= pygame.time.get_ticks() % ticks <= 5:
                 if speed >= 0:
@@ -500,5 +503,15 @@ while running:
         hero_sprites.update()
         car_sprites.update()
         train_sprites.update()
+        if show_start_screen:
+            best_score = str(open('data\\best_score.txt', 'r').readline().strip('\n'))
+            if best_score == '':
+                best_score = '0'
+            largeFont = pygame.font.SysFont('comicsans', 80)
+            lastScore = largeFont.render(f'Best Score: {best_score}', 1,
+                                         (0, 0, 0))
+            help_label = largeFont.render('Press "space" to start', 1, (0, 0, 0))
+            main_screen.blit(lastScore, ((board.width * board.cell_size) / 2 - lastScore.get_width() / 2, 150))
+            main_screen.blit(help_label, ((board.width * board.cell_size) / 2 - help_label.get_width() / 2, 330))
         clock.tick(50)
         pygame.display.flip()

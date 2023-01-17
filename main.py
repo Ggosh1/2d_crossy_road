@@ -189,6 +189,9 @@ class Board:  # класс поля, необходим для хранения 
                 x += 1
         line = self.generate_line(0, self.cell_size)
         self.board[0] = line
+        for el in all_sprites:
+            if el.rect.y > main_screen.get_height():
+                el.kill()
 
 
 class Rails(pygame.sprite.Sprite):  # рельсы
@@ -480,7 +483,8 @@ while running:
 
         cell = board.get_cell((hero.rect.x, hero.rect.y))
 
-        if cell is not None and board.board[cell[1]][0].__class__ == Water and \
+        if cell is \
+                not None and board.board[cell[1]][0].__class__ == Water and \
                 pygame.sprite.spritecollideany(hero, log_sprites) is None:
             hero.game_end()
 

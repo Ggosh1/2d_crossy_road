@@ -190,7 +190,7 @@ class Board:  # класс поля, необходим для хранения 
         line = self.generate_line(0, self.cell_size)
         self.board[0] = line
         for el in all_sprites:
-            if el.rect.y > main_screen.get_height():
+            if el.rect.y > main_screen.get_height() or el.rect.x < -3000 or el.rect.x > 3000:
                 el.kill()
 
 

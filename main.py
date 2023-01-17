@@ -1,4 +1,5 @@
 # -*- coding: utf8 -*-
+# 2d_crossy_road
 
 import os
 import random
@@ -14,6 +15,7 @@ w -= w % 100
 h -= h % 100
 size = w, h
 main_screen = pygame.display.set_mode(size)
+pygame.display.set_caption('2d_crossy_road')
 
 
 def load_image(name, colorkey=None):  # загрузка изображения спрайта
@@ -113,7 +115,7 @@ class Board:  # класс поля, необходим для хранения 
                                         100) < self.chance_tree_spawn:
 
                     pos = self.get_coords_by_cell((j, x))[0], self.get_coords_by_cell((j, x))[
-                        1] - self.cell_size - add_offset
+                                                                  1] - self.cell_size - add_offset
                     tree = Tree(tree_sprites, pos)
                     all_sprites.add(tree)
                     line.append(tree)
@@ -388,8 +390,10 @@ while running:
             moving = False
             copy_score = hero.movements
             best_score = str(open('data\\best_score.txt', 'r').readline().strip('\n'))
+            if best_score == '':
+                best_score = '0'
             largeFont = pygame.font.SysFont('comicsans', 80)
-            lastScore = largeFont.render(f'Best Score: {best_score}', 1,
+            lastScore = largeFont.render(f'Best Score: {max(int(best_score), copy_score)}', 1,
                                          (255, 255, 255))
             currentScore = largeFont.render(f'Score: {copy_score}', 1, (255, 255, 255))
             help_label = largeFont.render('Press "space" to restart', 1, (255, 255, 255))
@@ -401,6 +405,8 @@ while running:
                 file = open('data\\best_score.txt', 'r+')
                 file.truncate(0)
                 file.write(str(hero.movements))
+                file.close()
+
             hero.movements = 0
             pygame.display.update()
             should_update = False

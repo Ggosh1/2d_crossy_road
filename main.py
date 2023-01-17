@@ -262,7 +262,7 @@ class Hero(AnimatedSprite):  # персонаж
         cell = board.get_cell((main_screen.get_width() // 2, hero.rect.y))
         if cell is not None and board.board[cell[1]][0].__class__ == Water and (
                 self.rect.x <= -80 or self.rect.x >= main_screen.get_width() - 10):
-            hero.game_end()
+            self.game_end()
         if not self.left and moving:
             self.image = pygame.transform.flip(self.image, True, False)
         new_log = pygame.sprite.spritecollideany(self, log_sprites)
@@ -513,5 +513,5 @@ while running:
             help_label = largeFont.render('Press "space" to start', 1, (0, 0, 0))
             main_screen.blit(lastScore, ((board.width * board.cell_size) / 2 - lastScore.get_width() / 2, 150))
             main_screen.blit(help_label, ((board.width * board.cell_size) / 2 - help_label.get_width() / 2, 330))
-        clock.tick(50)
+        clock.tick(70)
         pygame.display.flip()

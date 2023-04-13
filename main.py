@@ -226,10 +226,13 @@ class Water(pygame.sprite.Sprite):  # вода
 
 
 class Hero(AnimatedSprite):  # персонаж
-    hero_image = load_image('ch.png')
 
-    def __init__(self, pos, *group):
-        super().__init__(Hero.hero_image, 4, 4, pos[0], pos[1], *group)
+    def __init__(self, pos, hero_code, *group):
+        if hero_code == 1:
+            self.hero_image = load_image('ch.png')
+        else:
+            self.hero_image == load_image('foxs.png')
+        super().__init__(self.hero_image, 5, 4, pos[0], pos[1], *group)
         self.left = True
         self.alive = True
         self.count = 0
@@ -391,7 +394,7 @@ while running:
             pygame.time.wait(300)
             moving = False
             copy_score = hero.movements
-            best_score = str(open('data\\best_score.txt', 'r').readline().strip('\n'))
+            best_score = str(open('data/best_score.txt', 'r').readline().strip('\n'))
             if best_score == '':
                 best_score = '0'
             largeFont = pygame.font.SysFont('comicsans', 80)
@@ -404,7 +407,7 @@ while running:
             main_screen.blit(currentScore, ((board.width * board.cell_size) / 2 - currentScore.get_width() / 2, 240))
             main_screen.blit(help_label, ((board.width * board.cell_size) / 2 - help_label.get_width() / 2, 330))
             if hero.movements > int(best_score):
-                file = open('data\\best_score.txt', 'r+')
+                file = open('data/best_score.txt', 'r+')
                 file.truncate(0)
                 file.write(str(hero.movements))
                 file.close()
@@ -500,12 +503,13 @@ while running:
         car_sprites.draw(main_screen)
         tree_sprites.draw(main_screen)
         train_sprites.draw(main_screen)
+        train_sprites.draw(main_screen)
         log_sprites.update()
         hero_sprites.update()
         car_sprites.update()
         train_sprites.update()
         if show_start_screen:
-            best_score = str(open('data\\best_score.txt', 'r').readline().strip('\n'))
+            best_score = str(open('data/best_score.txt', 'r').readline().strip('\n'))
             if best_score == '':
                 best_score = '0'
             largeFont = pygame.font.SysFont('comicsans', 80)
